@@ -1,0 +1,5 @@
+.env.local
+.private-journal/
+.DS_Store
+node_modules/
+dist/
