@@ -123,5 +123,10 @@ export const authService = {
       console.error('Error refreshing user:', err);
       return null;
     }
+  },
+
+  // Dev-only: Quick login with email only (for dev menu)
+  async devLogin(email: string, password: string = 'password123'): Promise<User> {
+    return this.login(email, password);
   }
 };

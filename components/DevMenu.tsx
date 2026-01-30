@@ -3,7 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCourse } from '../context/CourseContext';
 import { UserRole } from '../types';
-import { Code2, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Code2, X, ChevronDown, ChevronUp, LogIn } from 'lucide-react';
+import { authService } from '../services/authService';
+
+// Dev test accounts - credentials for quick login
+const DEV_ACCOUNTS = {
+  STUDENT: { email: 'student2@example.com', password: 'password123', name: 'Test Student' },
+  INSTRUCTOR: { email: 'luke@test.com', password: 'password123', name: 'Luke' },
+  ADMIN: { email: 'testuser123@example.com', password: 'password123', name: 'Test User' }
+};
 
 export const DevMenu: React.FC = () => {
   const navigate = useNavigate();
@@ -11,6 +19,7 @@ export const DevMenu: React.FC = () => {
   const { addCourse } = useCourse();
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Only show in development
   if (import.meta.env.PROD) return null;
@@ -45,6 +54,20 @@ export const DevMenu: React.FC = () => {
     const created = await addCourse(course);
     if (created) {
       alert(`Course created: ${created.title} (ID: ${created.id})`);
+    }
+  };
+
+  const handleQuickLogin = async (role: UserRole) => {
+    setIsLoggingIn(true);
+    try {
+      const account = DEV_ACCOUNTS[role];
+      await authService.devLogin(account.email, account.password);
+      alert(`Logged in as ${account.name} (${role})`);
+      window.location.reload();
+    } catch (error: any) {
+      alert('Login failed: ' + error.message);
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -120,6 +143,45 @@ export const DevMenu: React.FC = () => {
               <div className="text-gray-400">Not logged in</div>
             )}
           </div>
+
+          {/* Quick Login - only show when not logged in */}
+          {!user && (
+            <div>
+              <div className="text-xs font-bold text-gray-400 mb-2 flex items-center gap-1">
+                <LogIn className="h-3 w-3" />
+                QUICK LOGIN
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => handleQuickLogin(UserRole.STUDENT)}
+                  disabled={isLoggingIn}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed p-2 rounded text-xs transition-colors text-left"
+                >
+                  <div className="font-bold">Student</div>
+                  <div className="text-blue-200 text-[10px]">{DEV_ACCOUNTS.STUDENT.email}</div>
+                </button>
+                <button
+                  onClick={() => handleQuickLogin(UserRole.INSTRUCTOR)}
+                  disabled={isLoggingIn}
+                  className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed p-2 rounded text-xs transition-colors text-left"
+                >
+                  <div className="font-bold">Instructor</div>
+                  <div className="text-green-200 text-[10px]">{DEV_ACCOUNTS.INSTRUCTOR.email}</div>
+                </button>
+                <button
+                  onClick={() => handleQuickLogin(UserRole.ADMIN)}
+                  disabled={isLoggingIn}
+                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed p-2 rounded text-xs transition-colors text-left"
+                >
+                  <div className="font-bold">Admin</div>
+                  <div className="text-red-200 text-[10px]">{DEV_ACCOUNTS.ADMIN.email}</div>
+                </button>
+              </div>
+              {isLoggingIn && (
+                <div className="text-xs text-gray-400 mt-2 text-center">Logging in...</div>
+              )}
+            </div>
+          )}
 
           {/* Quick Navigation */}
           <div>
