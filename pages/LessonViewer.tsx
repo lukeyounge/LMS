@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Lesson, LessonType, isPageBasedContent, Page, LessonContent } from '../types';
-import { ChevronLeft, ChevronRight, CheckCircle, Menu, X, PlayCircle, FileText, Sparkles, HelpCircle, Volume2, StopCircle, ArrowLeft } from 'lucide-react';
+import { isSlideBasedContent, SlideBasedContent, themes } from '../components/course-builder/slides/slideTypes';
+import { SlideCanvas } from '../components/course-builder/slides/SlideCanvas';
+import { ChevronLeft, ChevronRight, CheckCircle, Menu, X, PlayCircle, FileText, Sparkles, HelpCircle, Volume2, StopCircle, ArrowLeft, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { GeminiTutor } from '../components/GeminiTutor';
 import { QuizViewer } from '../components/QuizViewer';
@@ -244,9 +246,19 @@ export const LessonViewer: React.FC = () => {
         {/* Content Viewer */}
         <div className="flex-1 overflow-y-auto bg-gray-50/50 p-6 md:p-12">
           <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-card border border-gray-100 p-8 md:p-12 min-h-[60vh]">
-            
+
             {/* Render Content Based on Type */}
-            {isPageBasedContent(currentLesson.content) ? (
+            {isSlideBasedContent(currentLesson.content) ? (
+              // New slide-based content format (v2)
+              <SlideBasedViewer
+                content={currentLesson.content}
+                onComplete={() => {
+                  if (courseId && lessonId) {
+                    completeLesson(courseId, lessonId);
+                  }
+                }}
+              />
+            ) : isPageBasedContent(currentLesson.content) ? (
               // New page-based content format
               <div className="space-y-6">
                 {(currentLesson.content as LessonContent).pages
@@ -452,4 +464,171 @@ function PageRenderer({ page, onQuizPass }: { page: Page; onQuizPass: () => void
     default:
       return null;
   }
+}
+
+// Slide-based content viewer for students
+function SlideBasedViewer({
+  content,
+  onComplete,
+}: {
+  content: SlideBasedContent;
+  onComplete: () => void;
+}) {
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const slides = content.slides.sort((a, b) => a.order - b.order);
+  const currentSlide = slides[currentSlideIndex];
+  const theme = themes[content.theme];
+  const isLastSlide = currentSlideIndex === slides.length - 1;
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setCurrentSlideIndex((i) => Math.max(0, i - 1));
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (currentSlideIndex < slides.length - 1) {
+          setCurrentSlideIndex((i) => i + 1);
+        }
+      } else if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentSlideIndex, slides.length, isFullscreen]);
+
+  if (slides.length === 0) {
+    return (
+      <div className="text-center py-16 text-gray-500">
+        This lesson has no content yet.
+      </div>
+    );
+  }
+
+  // Fullscreen mode
+  if (isFullscreen && currentSlide) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black">
+        <SlideCanvas
+          slide={currentSlide}
+          theme={theme}
+          isEditing={false}
+          onUpdate={() => {}}
+        />
+
+        {/* Navigation */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/10 backdrop-blur-lg rounded-full px-4 py-2">
+          <button
+            onClick={() => setCurrentSlideIndex((i) => Math.max(0, i - 1))}
+            disabled={currentSlideIndex === 0}
+            className="p-2 text-white disabled:opacity-30 hover:bg-white/10 rounded-full transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <span className="text-white text-sm font-medium min-w-[60px] text-center">
+            {currentSlideIndex + 1} / {slides.length}
+          </span>
+          <button
+            onClick={() => {
+              if (currentSlideIndex < slides.length - 1) {
+                setCurrentSlideIndex((i) => i + 1);
+              }
+            }}
+            disabled={currentSlideIndex === slides.length - 1}
+            className="p-2 text-white disabled:opacity-30 hover:bg-white/10 rounded-full transition-colors"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Exit button */}
+        <button
+          onClick={() => setIsFullscreen(false)}
+          className="absolute top-4 right-4 p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+        >
+          <Minimize2 className="w-5 h-5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Fullscreen toggle */}
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => setIsFullscreen(true)}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <Maximize2 className="w-4 h-4" />
+          Fullscreen
+        </button>
+      </div>
+
+      {/* Slide canvas */}
+      <div className="flex-1 min-h-[400px] rounded-xl overflow-hidden shadow-lg border border-gray-200">
+        {currentSlide && (
+          <SlideCanvas
+            slide={currentSlide}
+            theme={theme}
+            isEditing={false}
+            onUpdate={() => {}}
+          />
+        )}
+      </div>
+
+      {/* Navigation */}
+      <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+        <button
+          onClick={() => setCurrentSlideIndex((i) => Math.max(0, i - 1))}
+          disabled={currentSlideIndex === 0}
+          className="flex items-center gap-2 px-4 py-2 text-gray-600 disabled:text-gray-300 hover:bg-gray-100 rounded-lg transition-colors disabled:hover:bg-transparent"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Previous
+        </button>
+
+        {/* Progress dots */}
+        <div className="flex items-center gap-2">
+          {slides.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentSlideIndex(index)}
+              className={`w-2 h-2 rounded-full transition-colors ${
+                index === currentSlideIndex
+                  ? 'bg-blue-600'
+                  : index < currentSlideIndex
+                  ? 'bg-green-500'
+                  : 'bg-gray-300'
+              }`}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
+        </div>
+
+        {isLastSlide ? (
+          <button
+            onClick={onComplete}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Complete
+            <CheckCircle className="w-4 h-4" />
+          </button>
+        ) : (
+          <button
+            onClick={() => setCurrentSlideIndex((i) => i + 1)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }

@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Course, Section, Lesson, LessonContent, LessonType } from '../../../types';
+import { SlideBasedContent } from '../slides/slideTypes';
 import { courseService } from '../../../services/courseService';
+
+// Union type for all content types
+type AnyLessonContent = LessonContent | SlideBasedContent;
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -31,7 +35,7 @@ interface UseCurriculumReturn {
   selectLesson: (lessonId: string | null) => void;
 
   // Content actions
-  updateLessonContent: (lessonId: string, content: LessonContent) => void;
+  updateLessonContent: (lessonId: string, content: AnyLessonContent) => void;
   forceSave: () => Promise<void>;
 }
 
@@ -44,7 +48,7 @@ export function useCurriculum(courseId: string): UseCurriculumReturn {
   const [isLoading, setIsLoading] = useState(true);
 
   // Track pending content saves for autosave
-  const pendingContentSaves = useRef<Map<string, LessonContent>>(new Map());
+  const pendingContentSaves = useRef<Map<string, AnyLessonContent>>(new Map());
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load course data
@@ -342,7 +346,7 @@ export function useCurriculum(courseId: string): UseCurriculumReturn {
 
   // --- CONTENT ACTIONS ---
 
-  const updateLessonContent = useCallback((lessonId: string, content: LessonContent) => {
+  const updateLessonContent = useCallback((lessonId: string, content: AnyLessonContent) => {
     // Update local state immediately
     setSections(prev =>
       prev.map(s => ({

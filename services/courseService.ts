@@ -1,5 +1,9 @@
 import { Course, Enrollment, Section, Lesson, LessonContent, LessonType, createEmptyLessonContent } from '../types';
+import { SlideBasedContent, createEmptySlideContent } from '../components/course-builder/slides/slideTypes';
 import { supabase } from '../lib/supabase';
+
+// Union type for all content types
+type AnyLessonContent = LessonContent | SlideBasedContent;
 
 export const courseService = {
   // --- READ OPERATIONS ---
@@ -332,7 +336,8 @@ export const courseService = {
 
     const nextOrder = existingLessons && existingLessons.length > 0 ? existingLessons[0].order + 1 : 0;
 
-    const emptyContent = createEmptyLessonContent();
+    // Use slide-based content by default (v2)
+    const emptyContent = createEmptySlideContent();
 
     const { data, error } = await supabase
       .from('lessons')
@@ -420,7 +425,7 @@ export const courseService = {
 
   // --- CURRICULUM BATCH SAVE ---
 
-  async saveLessonContent(lessonId: string, content: LessonContent): Promise<void> {
+  async saveLessonContent(lessonId: string, content: AnyLessonContent): Promise<void> {
     const { error } = await supabase
       .from('lessons')
       .update({ content })

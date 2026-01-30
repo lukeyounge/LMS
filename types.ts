@@ -98,6 +98,11 @@ export interface LessonContent {
   pages: Page[];
 }
 
+// --- SLIDE-BASED LESSON CONTENT (v2) ---
+// Re-export slide types for convenience
+export type { SlideBasedContent, Slide, SlideData, SlideTemplate, ThemeId, Theme } from './components/course-builder/slides/slideTypes';
+export { isSlideBasedContent, createEmptySlideContent, createSlide, themes } from './components/course-builder/slides/slideTypes';
+
 // Helper to create empty page content
 export const createEmptyLessonContent = (): LessonContent => ({
   pages: []
@@ -133,13 +138,16 @@ export interface User {
   avatarUrl?: string;
 }
 
+// Import SlideBasedContent type
+import type { SlideBasedContent } from './components/course-builder/slides/slideTypes';
+
 export interface Lesson {
   id: string;
   sectionId: string;
   title: string;
   type: LessonType;
   duration: number; // in minutes
-  content: LessonContent | string; // New page-based content or legacy string
+  content: LessonContent | SlideBasedContent | string; // Slide-based (v2), page-based (v1), or legacy string
   isCompleted: boolean; // Static flag for initial state (can be overridden by context)
   isLocked: boolean;
   order: number;

@@ -13,9 +13,10 @@ import {
 import { useCurriculum } from './hooks/useCurriculum';
 import { AutosaveIndicator } from './AutosaveIndicator';
 import { CurriculumPanel } from './CurriculumPanel';
-import { LessonEditor } from './LessonEditor';
+import { SlideEditor } from './slides/SlideEditor';
 import { CommandPalette } from './CommandPalette';
 import { CourseDetailsPanel } from './CourseDetailsPanel';
+import { SlideBasedContent } from './slides/slideTypes';
 
 export function CourseBuilder() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -199,10 +200,10 @@ export function CourseBuilder() {
         {/* Main editor area */}
         <main className="flex-1 overflow-hidden">
           {selectedLesson ? (
-            <LessonEditor
+            <SlideEditor
               lesson={selectedLesson}
               onUpdateLesson={(updates) => updateLesson(selectedLesson.id, updates)}
-              onUpdateContent={(content) => updateLessonContent(selectedLesson.id, content)}
+              onUpdateContent={(content: SlideBasedContent) => updateLessonContent(selectedLesson.id, content)}
             />
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-gray-500">

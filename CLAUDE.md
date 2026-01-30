@@ -44,11 +44,16 @@ LMS/
 │   │   ├── CourseCard.tsx   # Course preview card
 │   │   ├── QuizViewer.tsx   # Quiz interface
 │   │   ├── GeminiTutor.tsx  # AI tutor chat
-│   │   ├── course-builder/  # New block-based course editor
+│   │   ├── course-builder/  # Slide-based course editor
 │   │   │   ├── CourseBuilder.tsx    # Main editor container
 │   │   │   ├── CurriculumPanel.tsx  # Section/lesson sidebar
-│   │   │   ├── LessonEditor.tsx     # Block-based lesson editor
-│   │   │   ├── blocks/              # Content block components
+│   │   │   ├── slides/              # Slide-based lesson editor (v2)
+│   │   │   │   ├── SlideEditor.tsx  # Main slide editor
+│   │   │   │   ├── SlideCanvas.tsx  # Renders slide templates
+│   │   │   │   ├── SlideThumbnails.tsx # Slide sidebar with drag-drop
+│   │   │   │   ├── TemplatePicker.tsx # Template & theme selection
+│   │   │   │   └── slideTypes.ts    # Types, themes, templates
+│   │   │   ├── blocks/              # Legacy block components
 │   │   │   └── hooks/useCurriculum.ts # State + autosave
 │   │   └── [other components]
 │   ├── context/
@@ -386,9 +391,12 @@ Set the same environment variables in Vercel project settings.
 
 ### 4. **JSONB for Flexible Lesson Content**
 - Lesson `content` field is JSONB, not normalized tables
-- New page-based format: `{ pages: Page[] }` where each page has `type`, `data`, `order`
-- Page types: `text`, `video`, `embed`, `quiz`, `code`, `image`, `divider`
-- Backward compatible with legacy string content via `isPageBasedContent()` type guard
+- **Slide-based format (v2):** `{ version: 2, theme: ThemeId, slides: Slide[] }`
+  - 8 slide templates: `title`, `content`, `media`, `split`, `quiz`, `webapp`, `code`, `bullets`
+  - 4 themes: `modern-light`, `modern-dark`, `warm`, `ocean`
+  - Webapp template embeds external URLs seamlessly (for custom interactive apps)
+- Legacy page-based format (v1): `{ pages: Page[] }` still supported
+- Type guards: `isSlideBasedContent()`, `isPageBasedContent()` for backward compatibility
 
 ### 5. **Real-time Ready**
 - Supabase subscriptions not yet fully used, but infrastructure is there
