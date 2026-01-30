@@ -11,6 +11,7 @@ import {
   WebappSlideData,
   CodeSlideData,
   BulletsSlideData,
+  CanvaSlideData,
 } from './slideTypes';
 import { isEmbedMessage, EmbedEventPayload, EmbedStatus, EmbedSubmissionType } from '../../../types';
 
@@ -881,6 +882,121 @@ function BulletsSlide({
   );
 }
 
+// Canva Slide (Embedded Canva Presentation)
+function CanvaSlide({
+  data,
+  theme,
+  isEditing,
+  onUpdate,
+}: {
+  data: CanvaSlideData;
+  theme: Theme;
+  isEditing: boolean;
+  onUpdate: (data: CanvaSlideData) => void;
+}) {
+  // Helper to extract/validate Canva embed URL
+  const getCanvaEmbedUrl = (input: string): string | null => {
+    if (!input) return null;
+
+    // If it's already an embed URL, use it directly
+    if (input.includes('canva.com/design/') && input.includes('/view')) {
+      return input;
+    }
+
+    // Try to extract design ID from various Canva URL formats
+    // Formats:
+    // - https://www.canva.com/design/DAGc.../view
+    // - https://www.canva.com/design/DAGc.../edit
+    // - Just the design ID like DAGc...
+    const designIdMatch = input.match(/DAG[a-zA-Z0-9_-]+/);
+    if (designIdMatch) {
+      return `https://www.canva.com/design/${designIdMatch[0]}/view?embed`;
+    }
+
+    return null;
+  };
+
+  const embedUrl = getCanvaEmbedUrl(data.embedUrl);
+
+  if (!data.embedUrl || isEditing) {
+    return (
+      <div className="h-full flex items-center justify-center p-8" style={{ backgroundColor: theme.colors.surface }}>
+        <div className="text-center w-full max-w-lg">
+          <div
+            className="w-16 h-16 mx-auto mb-6 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: theme.colors.primary + '20' }}
+          >
+            <svg className="w-8 h-8" style={{ color: theme.colors.primary }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold mb-2" style={{ color: theme.colors.text }}>
+            Embed a Canva Presentation
+          </h3>
+          <p className="mb-6" style={{ color: theme.colors.textMuted }}>
+            Paste your Canva share link or embed URL
+          </p>
+          <input
+            type="url"
+            value={data.embedUrl}
+            onChange={(e) => onUpdate({ ...data, embedUrl: e.target.value })}
+            placeholder="https://www.canva.com/design/DAG.../view"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="text"
+            value={data.title || ''}
+            onChange={(e) => onUpdate({ ...data, title: e.target.value })}
+            placeholder="Title (for accessibility)"
+            className="w-full mt-3 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+
+          {/* Help text */}
+          <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-lg text-left">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="text-sm">
+                <p className="font-medium text-purple-900 mb-1">How to get your Canva embed URL</p>
+                <ol className="text-purple-700 list-decimal list-inside space-y-1">
+                  <li>Open your presentation in Canva</li>
+                  <li>Click "Share" in the top right</li>
+                  <li>Select "More" then "Embed"</li>
+                  <li>Copy the embed link</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          {/* Preview indicator */}
+          {embedUrl && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-700">
+                ✓ Valid Canva URL detected. Save to see the preview.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Seamless iframe embed
+  return (
+    <div className="h-full w-full relative" style={{ backgroundColor: theme.colors.background }}>
+      <iframe
+        src={embedUrl || data.embedUrl}
+        title={data.title || 'Canva presentation'}
+        className="w-full h-full border-0"
+        allowFullScreen
+        allow="fullscreen"
+        loading="lazy"
+      />
+    </div>
+  );
+}
+
 // Main SlideCanvas component that renders the appropriate template
 export function SlideCanvas({ slide, theme, isEditing, onUpdate, embedHandlers }: SlideCanvasProps) {
   const renderSlide = () => {
@@ -954,6 +1070,15 @@ export function SlideCanvas({ slide, theme, isEditing, onUpdate, embedHandlers }
         return (
           <BulletsSlide
             data={slide.data as BulletsSlideData}
+            theme={theme}
+            isEditing={isEditing}
+            onUpdate={(data) => onUpdate(data)}
+          />
+        );
+      case 'canva':
+        return (
+          <CanvaSlide
+            data={slide.data as CanvaSlideData}
             theme={theme}
             isEditing={isEditing}
             onUpdate={(data) => onUpdate(data)}

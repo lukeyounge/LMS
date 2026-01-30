@@ -60,6 +60,8 @@ function getSlidePreview(slide: Slide): string {
       return slide.data.heading || 'Code';
     case 'bullets':
       return slide.data.heading || 'Key Points';
+    case 'canva':
+      return slide.data.title || 'Canva';
     default:
       return 'Slide';
   }
@@ -76,6 +78,7 @@ function getTemplateIcon(template: SlideTemplate): string {
     webapp: '◎',
     code: '</>',
     bullets: '•',
+    canva: '▣',
   };
   return icons[template] || '□';
 }

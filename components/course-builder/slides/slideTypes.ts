@@ -8,7 +8,8 @@ export type SlideTemplate =
   | 'quiz'            // Interactive quiz
   | 'webapp'          // Embedded webapp (seamless)
   | 'code'            // Code with syntax highlighting
-  | 'bullets';        // Key points with icons
+  | 'bullets'         // Key points with icons
+  | 'canva';          // Embedded Canva slideshow
 
 export type ThemeId = 'modern-light' | 'modern-dark' | 'warm' | 'ocean';
 
@@ -179,6 +180,13 @@ export interface BulletsSlideData extends BaseSlideData {
   }>;
 }
 
+// Canva slide (embedded Canva presentation)
+export interface CanvaSlideData extends BaseSlideData {
+  template: 'canva';
+  embedUrl: string; // Canva embed URL (from share > embed)
+  title?: string; // For accessibility
+}
+
 export type SlideData =
   | TitleSlideData
   | ContentSlideData
@@ -187,7 +195,8 @@ export type SlideData =
   | QuizSlideData
   | WebappSlideData
   | CodeSlideData
-  | BulletsSlideData;
+  | BulletsSlideData
+  | CanvaSlideData;
 
 export interface Slide {
   id: string;
@@ -233,6 +242,7 @@ export const createSlide = (template: SlideTemplate, order: number): Slide => {
     webapp: { template: 'webapp', url: '', title: '' },
     code: { template: 'code', heading: '', code: '', language: 'javascript', showLineNumbers: true },
     bullets: { template: 'bullets', heading: '', bullets: [] },
+    canva: { template: 'canva', embedUrl: '', title: '' },
   };
 
   return {
@@ -259,4 +269,5 @@ export const templateInfo: TemplateInfo[] = [
   { id: 'webapp', name: 'Webapp', description: 'Embed external app', icon: 'Globe' },
   { id: 'code', name: 'Code', description: 'Syntax-highlighted code', icon: 'Code' },
   { id: 'bullets', name: 'Key Points', description: 'Bulleted list with icons', icon: 'List' },
+  { id: 'canva', name: 'Canva', description: 'Embed Canva presentation', icon: 'Presentation' },
 ];

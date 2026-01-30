@@ -9,6 +9,7 @@ import {
   Globe,
   Code,
   List,
+  Presentation,
 } from 'lucide-react';
 import { SlideTemplate, templateInfo, Theme, themes, ThemeId } from './slideTypes';
 
@@ -28,6 +29,7 @@ const iconMap: Record<string, React.FC<{ className?: string }>> = {
   Globe,
   Code,
   List,
+  Presentation,
 };
 
 export function TemplatePicker({
