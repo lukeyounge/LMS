@@ -1,15 +1,34 @@
-import React, { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { useCourse } from '../context/CourseContext';
-import { CheckCircle, PlayCircle, Award, Lock, Star, Globe, ShieldCheck, Infinity as InfinityIcon, FileText } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { InlineCheckout } from '../components/InlineCheckout';
+import { PaymentSuccessModal } from '../components/PaymentSuccessModal';
+import { CheckCircle, PlayCircle, Award, Lock, Star, Globe, ShieldCheck, Infinity as InfinityIcon, FileText, CreditCard } from 'lucide-react';
 
 export const CourseDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { courses, enrollInCourse, getEnrollment, isLessonCompleted } = useCourse();
-  
+  const { courses, enrollInCourse, getEnrollment, isLessonCompleted, refreshData } = useCourse();
+  const { user, isAuthenticated } = useAuth();
+
   const course = courses.find(c => c.id === id);
+
+  // Check for payment success
+  const paymentSuccess = searchParams.get('payment') === 'success';
+  const [showSuccessModal, setShowSuccessModal] = useState(paymentSuccess);
+
+  // Refresh data and show modal on payment success
+  useEffect(() => {
+    if (paymentSuccess) {
+      refreshData();
+      setShowSuccessModal(true);
+      // Remove the query param from URL
+      setSearchParams({});
+    }
+  }, [paymentSuccess, refreshData, setSearchParams]);
 
   // Scroll to top on mount
   useEffect(() => {
@@ -32,8 +51,11 @@ export const CourseDetail: React.FC = () => {
     } else {
       // Check if course is paid
       if (course.price > 0) {
-        // Redirect to checkout page
-        navigate(`/checkout/${course.id}`);
+        // Scroll to checkout section on mobile or let inline checkout handle it
+        if (!isAuthenticated) {
+          navigate('/login');
+        }
+        // Otherwise InlineCheckout handles it
       } else {
         // Free course - direct enrollment
         enrollInCourse(course.id);
@@ -41,6 +63,13 @@ export const CourseDetail: React.FC = () => {
           navigate(`/learn/${course.id}/lesson/${course.sections[0].lessons[0].id}`);
         }
       }
+    }
+  };
+
+  const handleStartLearning = () => {
+    setShowSuccessModal(false);
+    if (course.sections.length > 0 && course.sections[0].lessons.length > 0) {
+      navigate(`/learn/${course.id}/lesson/${course.sections[0].lessons[0].id}`);
     }
   };
 
@@ -182,29 +211,44 @@ export const CourseDetail: React.FC = () => {
                              </div>
                         </div>
                     </div>
-                    
-                    <div className="p-8">
-                        <div className="flex items-end gap-3 mb-8">
-                            <span className="text-4xl font-bold text-gray-900 tracking-tight font-sans">
-                            {course.price === 0 ? 'Free' : `R${course.price}`}
-                            </span>
-                            {course.price > 0 && <span className="text-lg text-gray-400 line-through mb-1 font-medium">R{Math.round(course.price * 1.2)}</span>}
-                        </div>
 
-                        <Button onClick={handleAction} size="lg" className="w-full py-4 text-base shadow-lg shadow-primary-600/30 mb-4 h-14 font-bold">
-                            {isEnrolled ? 'Go to Dashboard' : 'Enroll Now'}
-                        </Button>
-                        
-                        {!isEnrolled && (
-                            <p className="text-center text-xs text-gray-500 mb-6 font-semibold">30-Day Money-Back Guarantee</p>
+                    <div className="p-8">
+                        {/* Show different UI based on enrollment status and price */}
+                        {isEnrolled ? (
+                          <>
+                            <div className="flex items-center gap-2 text-green-600 mb-4">
+                              <CheckCircle className="h-5 w-5" />
+                              <span className="font-semibold">You're enrolled!</span>
+                            </div>
+                            <Button onClick={handleAction} size="lg" className="w-full py-4 text-base shadow-lg shadow-primary-600/30 mb-4 h-14 font-bold">
+                              Continue Learning
+                            </Button>
+                          </>
+                        ) : course.price === 0 ? (
+                          <>
+                            <div className="flex items-end gap-3 mb-8">
+                              <span className="text-4xl font-bold text-gray-900 tracking-tight font-sans">Free</span>
+                            </div>
+                            <Button onClick={handleAction} size="lg" className="w-full py-4 text-base shadow-lg shadow-primary-600/30 mb-4 h-14 font-bold">
+                              Enroll Now - It's Free
+                            </Button>
+                            <p className="text-center text-xs text-gray-500 mb-6 font-semibold">Instant access to all content</p>
+                          </>
+                        ) : (
+                          <InlineCheckout
+                            course={course}
+                            isAuthenticated={isAuthenticated}
+                            onLoginRequired={() => navigate('/login')}
+                          />
                         )}
-                        
-                        <div className="space-y-4 pt-6 border-t border-gray-100">
+
+                        {/* Course includes - always show */}
+                        <div className="space-y-4 pt-6 border-t border-gray-100 mt-6">
                             <h3 className="font-bold text-gray-900 text-sm">This course includes:</h3>
                             <ul className="space-y-3 text-sm text-gray-600 font-medium">
                             <li className="flex items-center gap-3">
                                 <PlayCircle className="h-4 w-4 text-gray-900" />
-                                <span>{totalLessons * 15 / 60} hours on-demand video</span>
+                                <span>{Math.round(totalLessons * 15 / 60)} hours on-demand video</span>
                             </li>
                             <li className="flex items-center gap-3">
                                 <FileText className="h-4 w-4 text-gray-900" />
@@ -223,16 +267,40 @@ export const CourseDetail: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Trust Badge */}
-                <div className="bg-gray-50 rounded-xl p-6 border border-gray-100 flex items-center justify-center gap-4 text-gray-500 text-sm font-semibold">
-                    <ShieldCheck className="h-5 w-5 text-gray-400" />
-                    Secure Payment via Stripe
-                </div>
+                {/* Trust Badges - Enhanced */}
+                {!isEnrolled && course.price > 0 && (
+                  <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 space-y-4">
+                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                      <ShieldCheck className="h-5 w-5 text-green-600 flex-shrink-0" />
+                      <span className="font-medium">Secure payment via Paystack</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                      <CreditCard className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                      <span className="font-medium">Card, Bank Transfer & EFT accepted</span>
+                    </div>
+                    <div className="pt-3 border-t border-gray-200">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-10 h-6 bg-blue-700 rounded text-white text-[9px] font-bold flex items-center justify-center">VISA</div>
+                        <div className="w-10 h-6 bg-orange-500 rounded text-white text-[9px] font-bold flex items-center justify-center">MC</div>
+                        <div className="w-10 h-6 bg-green-600 rounded text-white text-[8px] font-bold flex items-center justify-center px-1">Verve</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
             </div>
           </div>
 
         </div>
       </div>
+
+      {/* Payment Success Modal */}
+      <PaymentSuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        courseName={course.title}
+        userEmail={user?.email}
+        onStartLearning={handleStartLearning}
+      />
     </div>
   );
 };
