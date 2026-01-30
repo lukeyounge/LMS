@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import {
   Slide,
   SlideData,
@@ -12,12 +12,31 @@ import {
   CodeSlideData,
   BulletsSlideData,
 } from './slideTypes';
+import { isEmbedMessage, EmbedEventPayload, EmbedStatus, EmbedSubmissionType } from '../../../types';
+
+// Embed event handler type for tracking interactions
+export interface EmbedEventHandlers {
+  onEmbedEvent?: (
+    slideId: string,
+    embedUrl: string,
+    event: {
+      status?: EmbedStatus;
+      progress?: number;
+      score?: number;
+      submissionData?: unknown;
+      submissionType?: EmbedSubmissionType;
+    }
+  ) => void;
+  onEmbedReady?: (slideId: string, embedUrl: string, sendInit: () => void) => void;
+}
 
 interface SlideCanvasProps {
   slide: Slide;
   theme: Theme;
   isEditing: boolean;
   onUpdate: (data: SlideData) => void;
+  // Optional embed tracking
+  embedHandlers?: EmbedEventHandlers;
 }
 
 // Responsive container that maintains aspect ratio on desktop but fills on mobile
@@ -495,25 +514,107 @@ function WebappSlide({
   theme,
   isEditing,
   onUpdate,
+  slideId,
+  embedHandlers,
 }: {
   data: WebappSlideData;
   theme: Theme;
   isEditing: boolean;
   onUpdate: (data: WebappSlideData) => void;
+  slideId?: string;
+  embedHandlers?: EmbedEventHandlers;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Function to send initialization message to embed
+  const sendInitMessage = useCallback(() => {
+    if (!iframeRef.current?.contentWindow || !data.url) return;
+    try {
+      const embedOrigin = new URL(data.url).origin;
+      iframeRef.current.contentWindow.postMessage({
+        type: 'lms-init',
+        version: '1.0',
+        payload: {
+          slideId: slideId || 'unknown',
+          lessonId: 'from-context', // Will be provided by handler
+        }
+      }, embedOrigin);
+    } catch (e) {
+      console.error('Failed to send init message to embed:', e);
+    }
+  }, [data.url, slideId]);
+
   useEffect(() => {
-    // Handle messages from embedded webapp for potential completion tracking
+    if (isEditing || !data.url) return;
+
+    // Handle messages from embedded webapp
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== new URL(data.url || 'about:blank').origin) return;
-      // Could handle completion events here
-      console.log('Message from webapp:', event.data);
+      // Validate origin
+      try {
+        const embedOrigin = new URL(data.url || 'about:blank').origin;
+        if (event.origin !== embedOrigin) return;
+      } catch {
+        return;
+      }
+
+      // Check if it's a valid LMS embed message
+      if (!isEmbedMessage(event.data)) {
+        // Legacy: log unrecognized messages for debugging
+        console.log('Message from webapp (unrecognized format):', event.data);
+        return;
+      }
+
+      const payload = event.data.payload as EmbedEventPayload;
+      const url = data.url || '';
+      const id = slideId || 'unknown';
+
+      // Handle different event types
+      switch (payload.event) {
+        case 'ready':
+          // Notify parent that embed is ready, provide sendInit function
+          if (embedHandlers?.onEmbedReady) {
+            embedHandlers.onEmbedReady(id, url, sendInitMessage);
+          } else {
+            // Auto-send init if no handler
+            sendInitMessage();
+          }
+          break;
+
+        case 'started':
+          embedHandlers?.onEmbedEvent?.(id, url, { status: 'started' });
+          break;
+
+        case 'progress':
+          embedHandlers?.onEmbedEvent?.(id, url, {
+            status: 'in_progress',
+            progress: payload.percent
+          });
+          break;
+
+        case 'completed':
+          embedHandlers?.onEmbedEvent?.(id, url, {
+            status: 'completed',
+            progress: 100,
+            score: payload.score
+          });
+          break;
+
+        case 'submitted':
+          embedHandlers?.onEmbedEvent?.(id, url, {
+            submissionData: payload.submission.content,
+            submissionType: payload.submission.type
+          });
+          break;
+
+        case 'error':
+          console.error('Embed error:', payload.message);
+          break;
+      }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [data.url]);
+  }, [data.url, isEditing, slideId, embedHandlers, sendInitMessage]);
 
   if (!data.url || isEditing) {
     return (
@@ -547,6 +648,31 @@ function WebappSlide({
             placeholder="Title (for accessibility)"
             className="w-full mt-3 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+
+          {/* Integration tip */}
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-left">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="text-sm">
+                <p className="font-medium text-blue-900 mb-1">Track learner progress from your embed</p>
+                <p className="text-blue-700 mb-2">
+                  Your webapp can notify the LMS when a learner completes an activity:
+                </p>
+                <pre className="bg-blue-100 p-2 rounded text-xs font-mono text-blue-800 overflow-x-auto">
+{`window.parent.postMessage({
+  type: 'lms-embed-event',
+  version: '1.0',
+  payload: { event: 'completed', score: 85 }
+}, '*');`}
+                </pre>
+                <p className="text-blue-600 mt-2 text-xs">
+                  See docs/USER_DATA_TRACKING_PLAN.md for full protocol details.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -756,7 +882,7 @@ function BulletsSlide({
 }
 
 // Main SlideCanvas component that renders the appropriate template
-export function SlideCanvas({ slide, theme, isEditing, onUpdate }: SlideCanvasProps) {
+export function SlideCanvas({ slide, theme, isEditing, onUpdate, embedHandlers }: SlideCanvasProps) {
   const renderSlide = () => {
     switch (slide.data.template) {
       case 'title':
@@ -811,6 +937,8 @@ export function SlideCanvas({ slide, theme, isEditing, onUpdate }: SlideCanvasPr
             theme={theme}
             isEditing={isEditing}
             onUpdate={(data) => onUpdate(data)}
+            slideId={slide.id}
+            embedHandlers={embedHandlers}
           />
         );
       case 'code':

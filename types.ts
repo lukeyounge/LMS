@@ -188,3 +188,74 @@ export interface Enrollment {
   completedLessonIds: string[];
   enrolledAt: Date;
 }
+
+// --- EMBED INTERACTION TRACKING ---
+
+export type EmbedStatus = 'not_started' | 'started' | 'in_progress' | 'completed';
+export type EmbedSubmissionType = 'code' | 'text' | 'file' | 'form' | 'custom';
+
+export interface EmbedInteraction {
+  id: string;
+  enrollmentId: string;
+  lessonId: string;
+  slideId: string;
+  embedUrl: string;
+  status: EmbedStatus;
+  progress: number;
+  score?: number;
+  timeSpentSeconds: number;
+  submissionData?: unknown;
+  submissionType?: EmbedSubmissionType;
+  startedAt?: Date;
+  completedAt?: Date;
+  lastInteractionAt: Date;
+}
+
+// --- EMBED MESSAGE PROTOCOL ---
+// Protocol for communication between embedded webapps and the LMS
+
+export interface EmbedMessage {
+  type: 'lms-embed-event';
+  version: '1.0';
+  payload: EmbedEventPayload;
+}
+
+export type EmbedEventPayload =
+  | { event: 'ready' }
+  | { event: 'started' }
+  | { event: 'progress'; percent: number }
+  | { event: 'completed'; score?: number; data?: unknown }
+  | { event: 'submitted'; submission: SubmissionData }
+  | { event: 'error'; message: string };
+
+export interface SubmissionData {
+  type: EmbedSubmissionType;
+  content: string | object;
+  metadata?: Record<string, unknown>;
+}
+
+// Message sent from LMS to embedded webapp
+export interface LmsInitMessage {
+  type: 'lms-init';
+  version: '1.0';
+  payload: {
+    userId?: string;
+    lessonId: string;
+    slideId: string;
+    previousState?: unknown;
+    config?: Record<string, unknown>;
+  };
+}
+
+// Type guard for embed messages
+export const isEmbedMessage = (data: unknown): data is EmbedMessage => {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'type' in data &&
+    (data as EmbedMessage).type === 'lms-embed-event' &&
+    'version' in data &&
+    (data as EmbedMessage).version === '1.0' &&
+    'payload' in data
+  );
+};

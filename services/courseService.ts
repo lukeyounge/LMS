@@ -1,4 +1,4 @@
-import { Course, Enrollment, Section, Lesson, LessonContent, LessonType, createEmptyLessonContent } from '../types';
+import { Course, Enrollment, Section, Lesson, LessonContent, LessonType, createEmptyLessonContent, EmbedInteraction, EmbedStatus, EmbedSubmissionType } from '../types';
 import { SlideBasedContent, createEmptySlideContent } from '../components/course-builder/slides/slideTypes';
 import { supabase } from '../lib/supabase';
 
@@ -574,5 +574,133 @@ export const courseService = {
       lastAccessedLessonId: updated.last_accessed_lesson_id || undefined,
       enrolledAt: new Date(updated.enrolled_at)
     };
+  },
+
+  // --- EMBED INTERACTION TRACKING ---
+
+  /**
+   * Track an interaction with an embedded webapp
+   * Uses the database function for upsert to handle race conditions
+   */
+  async trackEmbedInteraction(
+    courseId: string,
+    lessonId: string,
+    slideId: string,
+    embedUrl: string,
+    interaction: {
+      status?: EmbedStatus;
+      progress?: number;
+      score?: number;
+      timeSpentSeconds?: number;
+      submissionData?: unknown;
+      submissionType?: EmbedSubmissionType;
+    }
+  ): Promise<EmbedInteraction> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase.rpc('upsert_embed_interaction', {
+      p_course_id: courseId,
+      p_lesson_id: lessonId,
+      p_slide_id: slideId,
+      p_embed_url: embedUrl,
+      p_status: interaction.status || null,
+      p_progress: interaction.progress ?? null,
+      p_score: interaction.score ?? null,
+      p_time_spent_seconds: interaction.timeSpentSeconds ?? null,
+      p_submission_data: interaction.submissionData ? JSON.stringify(interaction.submissionData) : null,
+      p_submission_type: interaction.submissionType || null
+    });
+
+    if (error) throw new Error(error.message);
+
+    return mapEmbedInteraction(data);
+  },
+
+  /**
+   * Get all embed interactions for a specific lesson
+   */
+  async getEmbedInteractions(courseId: string, lessonId: string): Promise<EmbedInteraction[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // First get the enrollment
+    const { data: enrollment, error: enrollmentError } = await supabase
+      .from('enrollments')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('course_id', courseId)
+      .single();
+
+    if (enrollmentError) {
+      if (enrollmentError.code === 'PGRST116') return []; // Not enrolled
+      throw new Error(enrollmentError.message);
+    }
+
+    const { data, error } = await supabase
+      .from('embed_interactions')
+      .select('*')
+      .eq('enrollment_id', enrollment.id)
+      .eq('lesson_id', lessonId);
+
+    if (error) throw new Error(error.message);
+
+    return (data || []).map(mapEmbedInteraction);
+  },
+
+  /**
+   * Get a specific embed interaction by slide ID
+   */
+  async getEmbedInteractionBySlide(courseId: string, lessonId: string, slideId: string): Promise<EmbedInteraction | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // First get the enrollment
+    const { data: enrollment, error: enrollmentError } = await supabase
+      .from('enrollments')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('course_id', courseId)
+      .single();
+
+    if (enrollmentError) {
+      if (enrollmentError.code === 'PGRST116') return null; // Not enrolled
+      throw new Error(enrollmentError.message);
+    }
+
+    const { data, error } = await supabase
+      .from('embed_interactions')
+      .select('*')
+      .eq('enrollment_id', enrollment.id)
+      .eq('lesson_id', lessonId)
+      .eq('slide_id', slideId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null; // Not found
+      throw new Error(error.message);
+    }
+
+    return mapEmbedInteraction(data);
   }
 };
+
+// Helper function to map database row to EmbedInteraction type
+function mapEmbedInteraction(row: any): EmbedInteraction {
+  return {
+    id: row.id,
+    enrollmentId: row.enrollment_id,
+    lessonId: row.lesson_id,
+    slideId: row.slide_id,
+    embedUrl: row.embed_url,
+    status: row.status,
+    progress: row.progress || 0,
+    score: row.score ?? undefined,
+    timeSpentSeconds: row.time_spent_seconds || 0,
+    submissionData: row.submission_data ?? undefined,
+    submissionType: row.submission_type ?? undefined,
+    startedAt: row.started_at ? new Date(row.started_at) : undefined,
+    completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
+    lastInteractionAt: new Date(row.last_interaction_at)
+  };
+}
