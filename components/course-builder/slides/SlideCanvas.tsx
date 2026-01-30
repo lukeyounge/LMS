@@ -547,6 +547,31 @@ function WebappSlide({
             placeholder="Title (for accessibility)"
             className="w-full mt-3 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+
+          {/* Integration tip */}
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-left">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="text-sm">
+                <p className="font-medium text-blue-900 mb-1">Track learner progress from your embed</p>
+                <p className="text-blue-700 mb-2">
+                  Your webapp can notify the LMS when a learner completes an activity:
+                </p>
+                <pre className="bg-blue-100 p-2 rounded text-xs font-mono text-blue-800 overflow-x-auto">
+{`window.parent.postMessage({
+  type: 'lms-embed-event',
+  version: '1.0',
+  payload: { event: 'completed', score: 85 }
+}, '*');`}
+                </pre>
+                <p className="text-blue-600 mt-2 text-xs">
+                  See docs/USER_DATA_TRACKING_PLAN.md for full protocol details.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
