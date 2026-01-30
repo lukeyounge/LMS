@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Lesson, LessonType, isPageBasedContent, Page, LessonContent } from '../types';
+import { Lesson, LessonType, isPageBasedContent, Page, LessonContent, EmbedStatus, EmbedSubmissionType } from '../types';
 import { isSlideBasedContent, SlideBasedContent, themes } from '../components/course-builder/slides/slideTypes';
-import { SlideCanvas } from '../components/course-builder/slides/SlideCanvas';
+import { SlideCanvas, EmbedEventHandlers } from '../components/course-builder/slides/SlideCanvas';
 import { ChevronLeft, ChevronRight, CheckCircle, Menu, X, PlayCircle, FileText, Sparkles, HelpCircle, Volume2, StopCircle, ArrowLeft, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { GeminiTutor } from '../components/GeminiTutor';
 import { QuizViewer } from '../components/QuizViewer';
 import { useCourse } from '../context/CourseContext';
 import { generateLessonAudio } from '../services/geminiService';
+import { courseService } from '../services/courseService';
 
 export const LessonViewer: React.FC = () => {
   const { courseId, lessonId } = useParams<{ courseId: string; lessonId: string }>();
@@ -257,6 +258,8 @@ export const LessonViewer: React.FC = () => {
                     completeLesson(courseId, lessonId);
                   }
                 }}
+                courseId={courseId || ''}
+                lessonId={lessonId || ''}
               />
             ) : isPageBasedContent(currentLesson.content) ? (
               // New page-based content format
@@ -470,9 +473,13 @@ function PageRenderer({ page, onQuizPass }: { page: Page; onQuizPass: () => void
 function SlideBasedViewer({
   content,
   onComplete,
+  courseId,
+  lessonId,
 }: {
   content: SlideBasedContent;
   onComplete: () => void;
+  courseId: string;
+  lessonId: string;
 }) {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -481,6 +488,43 @@ function SlideBasedViewer({
   const currentSlide = slides[currentSlideIndex];
   const theme = themes[content.theme];
   const isLastSlide = currentSlideIndex === slides.length - 1;
+
+  // Embed event handlers for tracking interactions
+  const embedHandlers: EmbedEventHandlers = {
+    onEmbedEvent: useCallback(async (
+      slideId: string,
+      embedUrl: string,
+      event: {
+        status?: EmbedStatus;
+        progress?: number;
+        score?: number;
+        submissionData?: unknown;
+        submissionType?: EmbedSubmissionType;
+      }
+    ) => {
+      try {
+        await courseService.trackEmbedInteraction(
+          courseId,
+          lessonId,
+          slideId,
+          embedUrl,
+          {
+            status: event.status,
+            progress: event.progress,
+            score: event.score,
+            submissionData: event.submissionData,
+            submissionType: event.submissionType,
+          }
+        );
+        // If embed completed, could optionally trigger lesson completion
+        if (event.status === 'completed') {
+          console.log('Embed completed:', slideId, 'score:', event.score);
+        }
+      } catch (error) {
+        console.error('Failed to track embed interaction:', error);
+      }
+    }, [courseId, lessonId]),
+  };
 
   // Keyboard navigation
   useEffect(() => {
@@ -519,6 +563,7 @@ function SlideBasedViewer({
           theme={theme}
           isEditing={false}
           onUpdate={() => {}}
+          embedHandlers={embedHandlers}
         />
 
         {/* Navigation */}
@@ -578,6 +623,7 @@ function SlideBasedViewer({
             theme={theme}
             isEditing={false}
             onUpdate={() => {}}
+            embedHandlers={embedHandlers}
           />
         )}
       </div>
