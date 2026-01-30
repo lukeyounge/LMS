@@ -49,6 +49,17 @@ export const CourseProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   useEffect(() => {
     refreshData();
+
+    // Listen for payment success events to refresh enrollments
+    const handlePaymentSuccess = () => {
+      refreshData();
+    };
+
+    window.addEventListener('payment-success', handlePaymentSuccess);
+
+    return () => {
+      window.removeEventListener('payment-success', handlePaymentSuccess);
+    };
   }, []);
 
   const enrollInCourse = async (courseId: string) => {

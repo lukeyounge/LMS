@@ -10,6 +10,8 @@ import { CourseEditor } from './pages/CourseEditor';
 import { CourseBuilder } from './components/course-builder/CourseBuilder';
 import { Certificate } from './pages/Certificate';
 import { Login } from './pages/Login';
+import { Checkout } from './pages/Checkout';
+import { PaymentCallback } from './pages/PaymentCallback';
 import { CourseProvider } from './context/CourseContext';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -30,6 +32,8 @@ const App: React.FC = () => {
               <Route element={<Layout />}>
                 <Route index element={<Home />} />
                 <Route path="course/:id" element={<CourseDetail />} />
+                <Route path="checkout/:courseId" element={<Checkout />} />
+                <Route path="payment/callback" element={<PaymentCallback />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="certificate/:courseId" element={<Certificate />} />
                 

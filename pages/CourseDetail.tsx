@@ -30,9 +30,16 @@ export const CourseDetail: React.FC = () => {
         navigate(`/learn/${course.id}/lesson/${targetLessonId}`);
       }
     } else {
-      enrollInCourse(course.id);
-      if (course.sections.length > 0 && course.sections[0].lessons.length > 0) {
-        navigate(`/learn/${course.id}/lesson/${course.sections[0].lessons[0].id}`);
+      // Check if course is paid
+      if (course.price > 0) {
+        // Redirect to checkout page
+        navigate(`/checkout/${course.id}`);
+      } else {
+        // Free course - direct enrollment
+        enrollInCourse(course.id);
+        if (course.sections.length > 0 && course.sections[0].lessons.length > 0) {
+          navigate(`/learn/${course.id}/lesson/${course.sections[0].lessons[0].id}`);
+        }
       }
     }
   };

@@ -187,6 +187,8 @@ export interface Enrollment {
   lastAccessedLessonId?: string;
   completedLessonIds: string[];
   enrolledAt: Date;
+  transactionId?: string;
+  paymentStatus?: 'free' | 'paid' | 'refunded';
 }
 
 // --- EMBED INTERACTION TRACKING ---
@@ -259,3 +261,60 @@ export const isEmbedMessage = (data: unknown): data is EmbedMessage => {
     'payload' in data
   );
 };
+
+// --- PAYMENT SYSTEM TYPES ---
+
+export enum TransactionStatus {
+  PENDING = 'pending',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  REFUNDED = 'refunded'
+}
+
+export interface PaymentGateway {
+  id: string;
+  name: string;           // 'paystack', 'payfast', 'stripe'
+  displayName: string;    // 'Paystack', 'PayFast', 'Stripe'
+  isActive: boolean;
+  config: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  courseId: string;
+  gatewayId: string;
+  amount: number;
+  currency: string;
+  status: TransactionStatus;
+  gatewayReference?: string;
+  gatewayResponse?: Record<string, any>;
+  createdAt: Date;
+  completedAt?: Date;
+}
+
+// Payment initialization request/response types
+export interface InitializePaymentRequest {
+  courseId: string;
+  gateway?: string;  // defaults to 'paystack'
+}
+
+export interface InitializePaymentResponse {
+  authorizationUrl: string;
+  reference: string;
+  transactionId: string;
+}
+
+// Payment verification request/response types
+export interface VerifyPaymentRequest {
+  reference: string;
+}
+
+export interface VerifyPaymentResponse {
+  status: 'success' | 'failed' | 'pending';
+  courseId?: string;
+  message: string;
+  transaction?: Transaction;
+}
