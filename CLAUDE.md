@@ -86,7 +86,8 @@ LMS/
 │       ├── 002_rls_policies.sql # Row-level security
 │       ├── 003_auth_trigger.sql # Auto-create user profile
 │       ├── 004_helper_functions.sql # DB utility functions
-│       └── 005_fix_auth_trigger.sql # Auth fixes
+│       ├── 005_fix_auth_trigger.sql # Auth fixes
+│       └── 006_embed_interactions.sql # Embed tracking table
 ├── index.html               # HTML template (Tailwind CDN)
 ├── vite.config.ts           # Vite configuration
 ├── tsconfig.json            # TypeScript config
@@ -154,6 +155,17 @@ LMS/
 ```
 
 **`quizzes`, `questions`, `quiz_attempts`** (for structured assessment)
+
+**`embed_interactions`** (tracks learner activity in webapp embeds)
+```sql
+- id (UUID)
+- enrollment_id (FK→enrollments)
+- lesson_id, slide_id, embed_url
+- status (ENUM: not_started, started, in_progress, completed)
+- progress (0-100), score, time_spent_seconds
+- submission_data (JSONB), submission_type
+- started_at, completed_at, last_interaction_at
+```
 
 ### Key Features
 
